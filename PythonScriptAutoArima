@@ -1,0 +1,72 @@
+import pmdarima as pm
+import pandas as pd
+import warnings
+warnings.filterwarnings("ignore")
+import numpy as np
+import os
+from tqdm import tqdm
+from pmdarima.arima import ADFTest
+from pmdarima.arima import auto_arima
+
+data = pd.read_csv("filepath")
+data.head()
+# NEED full date by year month along with y value and an ID for each country
+# 2022-04-01   203    2
+# 2022-05-01   345    2
+
+Only use this code below if excel changes your format to dd/mm/yyyy
+x = data["Year Month"]
+Training = []
+for i in range(0, len(x)):
+    new_value = x[i][6:11]+x[i][2:6]+x[i][0:2]
+    Training.append(new_value)
+
+Training = np.reshape(Training, (len(Training),1))
+data['Month'] = Training
+
+def forecast():
+    CountryID = df['CountryID'].min()
+    features =['Month','Total Days']
+    X=df[features]
+    X['Month']=pd.to_datetime(X['Month'])
+    X.set_index('Month',inplace =True)
+    adf_test = ADFTest(alpha=0.05)
+    adf_test.should_diff(X)
+    arima_model = auto_arima(X, start_p=0, d=1, start_q = 0, max_p=5, max_d=5, max_q=5,
+                        start_P=0, D=1, start_Q=0, max_P = 5, max_D=5, max_Q=5,
+                        m=12, seasonal=True, error_action='warn', trace=True, supress_warnings=True,
+                        stepwise=True, random_state=20,n_fits=50)
+    prediction = arima_model.predict(n_periods=12)
+    month_date = prediction.index.tolist()
+    month_date = np.reshape(month_date, (len(month_date),1))
+    df_1 = pd.DataFrame(prediction)
+    df_1["Month"] = month_date
+    for i in range (0,len(df_1)):
+        df_1["CountryID"] = df['CountryID'].min()
+    path = os.path.isfile(r"filepath")
+    if path == True:
+        df_1.to_csv(r"filepath", mode="a", index=False, header=False)
+    else:
+        df_1.to_csv(r"filepath", index=False)
+        
+ for i in tqdm(range(1,data["CountryID"].max()+1)):
+    df = data.apply(lambda row: row[data["CountryID"].isin ([i])])
+    forecast()
+    
+WHEN RUNNING THIS IS THE TYPE OF THING YOU SHOULD SEE.
+
+ Performing stepwise search to minimize aic
+ ARIMA(0,1,0)(0,1,0)[12]             : AIC=417.454, Time=0.02 sec
+ ARIMA(1,1,0)(1,1,0)[12]             : AIC=409.926, Time=0.09 sec
+ ARIMA(0,1,1)(0,1,1)[12]             : AIC=inf, Time=0.20 sec
+ ARIMA(1,1,0)(0,1,0)[12]             : AIC=409.160, Time=0.02 sec
+ ARIMA(1,1,0)(0,1,1)[12]             : AIC=410.165, Time=0.11 sec
+ ARIMA(1,1,0)(1,1,1)[12]             : AIC=411.650, Time=0.17 sec
+ ARIMA(2,1,0)(0,1,0)[12]             : AIC=410.568, Time=0.04 sec
+ ARIMA(1,1,1)(0,1,0)[12]             : AIC=inf, Time=0.10 sec
+ ARIMA(0,1,1)(0,1,0)[12]             : AIC=inf, Time=0.05 sec
+  2%|█▋                                                                                 | 1/49 [00:01<00:48,  1.01s/it]
+ ARIMA(2,1,1)(0,1,0)[12]             : AIC=inf, Time=0.15 sec
+ ARIMA(1,1,0)(0,1,0)[12] intercept   : AIC=411.160, Time=0.04 sec
+ Best model:  ARIMA(1,1,0)(0,1,0)[12]          
+Total fit time: 0.983 seconds
